@@ -29,7 +29,7 @@ namespace TDomain
         private readonly string _columnOneName = "LocalTime";
         private readonly string _columnTwoName = "Volume";
         private readonly string _dataDateFormat = "HH:mm";
-        private readonly TimeSpan _timeOut = new TimeSpan(0,0,5);
+        private readonly TimeSpan _timeOut = new TimeSpan(0,0,5);        
         private List<PowerTrade> _powerTrades;
 
         [OneTimeSetUp]
@@ -95,7 +95,7 @@ namespace TDomain
             if (!System.IO.Directory.Exists(_fileFolder))
             {
                 Directory.CreateDirectory(_fileFolder);
-            }            
+            }
         }
 
         [Test]
@@ -109,7 +109,7 @@ namespace TDomain
             //confirm file was written
             string expectedFileName = @"C:\Position Files\PowerPosition_20160831_0101.csv";
             System.IO.File.Delete(expectedFileName);
-            csvWriter.WriteCsv(_fileFolder, _fileName, _fileDateFormat, _fileSuffix, _delimiter, _columnOneName, _columnTwoName, _dataDateFormat, position);
+            csvWriter.WriteCsv(expectedFileName, _delimiter, _columnOneName, _columnTwoName, _dataDateFormat, position);
             Assert.IsTrue(System.IO.File.Exists(expectedFileName));
             var writtenCsvText = File.ReadAllText(expectedFileName);
             Assert.AreEqual(_csvExampleText, writtenCsvText);
@@ -256,7 +256,97 @@ namespace TDomain
                     _dataDateFormat, minuteInterval, _testDateTime, powerService, _timeOut));
         }
 
-        [Test][Ignore("Takes too long")]
+        //Confirm that the logic for writing the historical csv set runs correctly
+        public void WriteCsvMinuteIntervalHistorical_writes_correct_number_of_files()
+        {
+            var csvWriter = new CsvWriter();
+            var minuteInterval = 1;
+            var createFiles = 3;
+
+            //First clear out the folder
+            Array.ForEach(Directory.GetFiles(_fileFolder), File.Delete);
+            var fromDate = new DateTime(2016,1,1,1,1,0);
+            var toDate = fromDate.AddMinutes(2);
+
+            csvWriter.WriteCsvMinuteIntervalHistorical(_fileFolder, _fileName, _fileDateFormat, _fileSuffix, _delimiter, _columnOneName, _columnTwoName,
+                _dataDateFormat, minuteInterval, _powerService, _timeOut, fromDate, toDate, true);
+          
+            //Confirm the correct number of files has been written
+            var writtenFiles = Directory.GetFiles(_fileFolder).Count();
+            Assert.AreEqual(createFiles, writtenFiles);
+        }
+
+        //Confirm that the logic for writing the historical csv set runs correctly
+        public void WriteCsvMinuteIntervalHistorical_does_not_overwrite_previous_files_when_false()
+        {
+            var csvWriter = new CsvWriter();
+            var minuteInterval = 1;
+            var createFiles = 3;
+
+            var fromDate = new DateTime(2016, 1, 1, 1, 1, 0);
+            var toDate = fromDate.AddMinutes(2);
+
+            //Setup by writing clearing the folder and writing three new files
+            Array.ForEach(Directory.GetFiles(_fileFolder), File.Delete);
+            csvWriter.WriteCsvMinuteIntervalHistorical(_fileFolder, _fileName, _fileDateFormat, _fileSuffix, _delimiter, _columnOneName, _columnTwoName,
+                _dataDateFormat, minuteInterval, _powerService, _timeOut, fromDate, toDate, false);
+
+            var writtenFiles = Directory.GetFiles(_fileFolder).Count();
+            Assert.AreEqual(createFiles, writtenFiles);
+
+            var directory = new DirectoryInfo(_fileFolder);
+            var files = directory.GetFiles();
+            var originalQuery = from file in files select file.LastWriteTime;
+            
+            // rewrite the files and confirm the files were not overrwritten
+            csvWriter.WriteCsvMinuteIntervalHistorical(_fileFolder, _fileName, _fileDateFormat, _fileSuffix, _delimiter, _columnOneName, _columnTwoName,
+                _dataDateFormat, minuteInterval, _powerService, _timeOut, fromDate, toDate, false);
+
+            writtenFiles = Directory.GetFiles(_fileFolder).Count();
+            Assert.AreEqual(createFiles, writtenFiles);
+
+            var modifiedFiles = directory.GetFiles();
+            var modifiedQuery = from file in modifiedFiles select file.LastWriteTime;
+
+            Assert.IsTrue(originalQuery.SequenceEqual(modifiedQuery));
+
+        }
+        
+        public void WriteCsvMinuteIntervalHistorical_does_overwrite_previous_files_when_true()
+        {
+            var csvWriter = new CsvWriter();
+            var minuteInterval = 1;
+            var createFiles = 3;
+
+            var fromDate = new DateTime(2016, 1, 1, 1, 1, 0);
+            var toDate = fromDate.AddMinutes(2);
+
+            //Setup by writing clearing the folder and writing three new files
+            Array.ForEach(Directory.GetFiles(_fileFolder), File.Delete);
+            csvWriter.WriteCsvMinuteIntervalHistorical(_fileFolder, _fileName, _fileDateFormat, _fileSuffix, _delimiter, _columnOneName, _columnTwoName,
+                _dataDateFormat, minuteInterval, _powerService, _timeOut, fromDate, toDate, true);
+
+            var writtenFiles = Directory.GetFiles(_fileFolder).Count();
+            Assert.AreEqual(createFiles, writtenFiles);
+
+            var directory = new DirectoryInfo(_fileFolder);
+            var files = directory.GetFiles();
+            var originalQuery = from file in files select file.LastWriteTime;
+            
+            // rewrite the files and confirm the files were not overrwritten
+            csvWriter.WriteCsvMinuteIntervalHistorical(_fileFolder, _fileName, _fileDateFormat, _fileSuffix, _delimiter, _columnOneName, _columnTwoName,
+                _dataDateFormat, minuteInterval, _powerService, _timeOut, fromDate, toDate, true);
+
+            writtenFiles = Directory.GetFiles(_fileFolder).Count();
+            Assert.AreEqual(createFiles, writtenFiles);
+
+            var modifiedFiles = directory.GetFiles();
+            var modifiedQuery = from file in modifiedFiles select file.LastWriteTime;
+
+            Assert.IsFalse(originalQuery.SequenceEqual(modifiedQuery));
+
+        }
+        [Test]
         //Confirm that the logic for writing at the set minute interval is working correctly
         public void StartCsvMinuteInterval_writes_correct_number_of_files()
         {
@@ -276,6 +366,33 @@ namespace TDomain
                 // relenquish time slice
                 Thread.Sleep(0);
             }      
+            stopwatch.Stop();
+            //Confirm the correct number of files has been written
+            var writtenFiles = Directory.GetFiles(_fileFolder).Count();
+            Assert.AreEqual(createFiles, writtenFiles);
+        }
+
+        [Test]        
+        public void StartCsvMinuteInterval_writes_one_file_on_first_call()
+        {
+            var csvWriter = new CsvWriter();
+            var minuteInterval = 60;
+            var createFiles = 1;
+
+            //First clear out the folder
+            Array.ForEach(Directory.GetFiles(_fileFolder), File.Delete);
+            csvWriter.StartCsvMinuteInterval(_fileFolder, _fileName, _fileDateFormat, _fileSuffix, _delimiter, _columnOneName, _columnTwoName,
+                _dataDateFormat, minuteInterval, _powerService, _timeOut);
+
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+            //give a few seconds for timer to write the first file
+            while (stopwatch.ElapsedMilliseconds < 5000)
+            {
+                // relenquish time slice
+                Thread.Sleep(0);
+            }
+            stopwatch.Stop();
             //Confirm the correct number of files has been written
             var writtenFiles = Directory.GetFiles(_fileFolder).Count();
             Assert.AreEqual(createFiles, writtenFiles);
@@ -307,10 +424,10 @@ namespace TDomain
        
         public void ScratchTwo()
         {
-            var tradesTask = _powerService.GetTradesAsync(_testDateTime);
-            tradesTask.Start();
-            var tradesTaskTwo = _powerService.GetTradesAsync(_testDateTime);
-            tradesTaskTwo.Start();
+            var dateTimeString = "1-Sep-2016 21:05:00";
+            var dateTime = Convert.ToDateTime(dateTimeString);
+            Console.WriteLine(dateTime.ToLongTimeString());
+            Console.WriteLine(dateTime.ToLongDateString());
         }
     }
 }

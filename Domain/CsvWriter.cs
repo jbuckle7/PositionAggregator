@@ -26,10 +26,9 @@ namespace Domain
         }
         
         //Generate a Csv for a position
-        internal void WriteCsv(string fileFolder, string fileName, string fileDateFormat, string fileSuffix, string delimiter, string columnOneName, 
+        internal void WriteCsv(string writeFile, string delimiter, string columnOneName, 
             string columnTwoName, string dataDateFormat, Position position)
-        {
-            var writeFile = GetFullFileName(fileFolder, fileName, fileDateFormat, fileSuffix, position.ForDate);
+        {            
             try
             {
                 using (var streamWriter = new StreamWriter(writeFile))
@@ -69,9 +68,21 @@ namespace Domain
                   , null, 0, 10000);                        
         }
 
+        //Generate historical position csv files
+        public void WriteCsvMinuteIntervalHistorical(string fileFolder, string fileName, string fileDateFormat, string fileSuffix, string delimiter, string columnOneName,
+            string columnTwoName, string dataDateFormat, int minuteInterval, IPowerService powerService, TimeSpan timeout, DateTime fromDate, DateTime toDate, bool overwriteExisting)
+        {
+            for (DateTime checkDateTime = fromDate; checkDateTime <= toDate; checkDateTime = checkDateTime.AddMinutes(1))
+            {
+                WriteCsvMinuteInterval(fileFolder, fileName, fileDateFormat, fileSuffix, delimiter, columnOneName,
+                    columnTwoName, dataDateFormat, minuteInterval, checkDateTime, powerService, timeout, overwriteExisting);
+            }
+            
+        }
+
         //Write the csv file if the current time is at the minute Interval and no other file has been written by the process.  Otherwise write the file.
         public void WriteCsvMinuteInterval(string fileFolder, string fileName, string fileDateFormat, string fileSuffix, string delimiter, string columnOneName,
-            string columnTwoName, string dataDateFormat, int minuteInterval, DateTime? asAt, IPowerService powerService, TimeSpan timeout)
+            string columnTwoName, string dataDateFormat, int minuteInterval, DateTime? asAt, IPowerService powerService, TimeSpan timeout, bool overwriteExisting = true)
         {
             //use at parameter to override what time the method believes it is.  This is useful for testing.
             //using Universal time means do not have to worry about clocks changing
@@ -80,24 +91,29 @@ namespace Domain
             //if null then this is a first run so write the file if 
             if (_lastWroteCsv == null || (nowDateTime.Minute % minuteInterval == 0 && 
                 (nowDateTime.Day != _lastWroteCsv.Value.Day || nowDateTime.Hour != _lastWroteCsv.Value.Hour || nowDateTime.Minute != _lastWroteCsv.Value.Minute)))
-            {
+            {                
                 try
                 {
-                    _tryWriteCsv++;                    
-                    var tradesTask = powerService.GetTradesAsync(nowDateTime);
-                    if (!tradesTask.Wait(timeout))
+                    var writeFile = GetFullFileName(fileFolder, fileName, fileDateFormat, fileSuffix, nowDateTime);
+                    var fileExists = File.Exists(writeFile);
+                    if (overwriteExisting == true || (!fileExists))
                     {
-                        var exceptionMessage =
-                            "The operation to retrieve power trades has timed out.  Timeout value used was " +
-                            timeout.Seconds + " seconds.  The date parameter passed was " + nowDateTime.ToString("R");
-                        throw new WriteCsvException(exceptionMessage);
+                        _tryWriteCsv++;
+                        var tradesTask = powerService.GetTradesAsync(nowDateTime);
+                        if (!tradesTask.Wait(timeout))
+                        {
+                            var exceptionMessage =
+                                "The operation to retrieve power trades has timed out.  Timeout value used was " +
+                                timeout.Seconds + " seconds.  The date parameter passed was " +
+                                nowDateTime.ToString("R");
+                            throw new WriteCsvException(exceptionMessage);
+                        }
+                        var trades = tradesTask.Result;
+                        var position = new Position(trades, nowDateTime);
+                        WriteCsv(writeFile, delimiter, columnOneName, columnTwoName, dataDateFormat, position);
+                        _lastWroteCsv = nowDateTime;
+                        _tryWriteCsv = 0;
                     }
-                    var trades  = tradesTask.Result;
-                    var position = new Position(trades, nowDateTime);
-                    WriteCsv(fileFolder, fileName, fileDateFormat, fileSuffix, delimiter, columnOneName, columnTwoName,
-                        dataDateFormat, position);
-                    _lastWroteCsv = nowDateTime;
-                    _tryWriteCsv = 0;
                 }
                 catch (Exception ex)
                     when (ex is PowerServiceException || ex is WriteCsvException || ex is AggregateException)
@@ -123,5 +139,4 @@ namespace Domain
         }
 
     }
-
 }

@@ -34,10 +34,22 @@ namespace PositionAggregator
             var dataDateFormat = ConfigurationManager.AppSettings["dataDateFormat"];
             var minuteInterval = Convert.ToInt32(ConfigurationManager.AppSettings["minuteInterval"]);
             var timeoutSeconds = Convert.ToInt32(ConfigurationManager.AppSettings["powerServiceTimeOutSeconds"]);
+            var backFillFromSetting = ConfigurationManager.AppSettings["backFillFrom"];
+            var backFillOverWriteExisting = Convert.ToBoolean(ConfigurationManager.AppSettings["backFillOverWriteExisting"]);
+                        
             var timeout = new TimeSpan(0,0,timeoutSeconds);
             var powerService = new PowerService();
+            var backFillTo = DateTime.Now;
 
-
+            if (!string.IsNullOrWhiteSpace(backFillFromSetting))
+            {
+                var backFillFrom = Convert.ToDateTime(backFillFromSetting);
+                //If any files have been missed due to unexpected error must have the ability to backfill in any expected files that are missing
+                //do this first
+                new CsvWriter().WriteCsvMinuteIntervalHistorical(fileFolder, fileName, fileDateFormat, fileSuffix, delimiter,
+                    columnOneName, columnTwoName, dataDateFormat,
+                    minuteInterval, powerService, timeout, backFillFrom, backFillTo, backFillOverWriteExisting);
+            }
             _csvWriter.StartCsvMinuteInterval(fileFolder, fileName, fileDateFormat, fileSuffix, delimiter, columnOneName, columnTwoName, dataDateFormat,
                 minuteInterval, powerService, timeout);
         }
