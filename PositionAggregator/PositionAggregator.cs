@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Configuration;
 using Domain;
 using Services;
+using System.IO;
 
 namespace PositionAggregator
 {
@@ -40,6 +41,12 @@ namespace PositionAggregator
             var timeout = new TimeSpan(0,0,timeoutSeconds);
             var powerService = new PowerService();
             var backFillTo = DateTime.Now;
+
+            //Create the folder if it does not exist
+            if (!Directory.Exists(fileFolder))
+            {
+                Directory.CreateDirectory(fileFolder);
+            }
 
             if (!string.IsNullOrWhiteSpace(backFillFromSetting))
             {
