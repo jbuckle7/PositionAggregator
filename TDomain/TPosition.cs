@@ -110,6 +110,11 @@ namespace TDomain
             var expectedForDate = _testDateTime;
             var actualForDate = position.ForDate;
             Assert.AreEqual(expectedForDate, actualForDate);
-        }        
+        }
+        
+        public void Scratch()
+        {
+          //  Array.Copy();
+        }   
     }
 }

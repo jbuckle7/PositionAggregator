@@ -121,7 +121,7 @@ namespace TDomain
         {            
             var minuteInterval = 30;
             var asAt = _testDateTime;
-            var csvWriter = new CsvWriter();
+            var csvWriter = new CsvWriter();            
             //confirm file was written
             string expectedFileName = @"C:\Position Files\PowerPosition_20160831_0101.csv";
             //First confirm the File writes
@@ -139,6 +139,7 @@ namespace TDomain
             var minuteInterval = 30;
             var asAt = _testDateTime.AddMinutes(20);
             var csvWriter = new CsvWriter();
+            var tryWriteCsv = 0;
             DateTime? lastWroteCsv = null;
             //have to write one file first
             lastWroteCsv = csvWriter.WriteCsvMinuteInterval(_fileFolder, _fileName, _fileDateFormat, _fileSuffix, _delimiter, _columnOneName, _columnTwoName,
@@ -158,6 +159,7 @@ namespace TDomain
             var csvWriter = new CsvWriter();
             var minuteInterval = 30;
             var asAt = _testDateTime.AddMinutes(29);
+            
             //confirm file was written
             string expectedFileName = @"C:\Position Files\PowerPosition_20160831_0130.csv";
             DateTime? lastWroteCsv = null;
@@ -174,23 +176,21 @@ namespace TDomain
 
         [Test]
         //Confirm the WriteCvException is being logged in the correct format
-        public void WriteCsvMinuteInterval_PowerServiceException_is_caught_and_logged()
+        public void TryWriteCsvMinuteInterval_PowerServiceException_is_caught_and_logged()
         {
             var csvWriter = new CsvWriter();
             var minuteInterval = 30;          
             //confirm file was written
-            var logFileName = "PositionAggregatorLogFile.txt";
-            var maxTrys = 5;
+            var logFileName = "PositionAggregatorLogFile.txt";            
+
             DateTime? lastWroteCsv = null;
             File.Delete(logFileName);
             IPowerService powerService = Mock.Create<IPowerService>();
             Mock.Arrange(() => powerService.GetTradesAsync(_testDateTime)).Throws<PowerServiceException>("Power Service Exception");
-            //first try five times and confirm log file is written correctly
-            for(int i = 1;i<=maxTrys;i++)
-            { 
-                lastWroteCsv = csvWriter.WriteCsvMinuteInterval(_fileFolder, _fileName, _fileDateFormat, _fileSuffix, _delimiter, _columnOneName, _columnTwoName,
-                    _dataDateFormat, minuteInterval, _testDateTime, powerService, _timeOut, lastWroteCsv);
-            }
+
+            Assert.Throws<PowerServiceException>(() => lastWroteCsv = csvWriter.TryWriteCsvMinuteInterval(_fileFolder, _fileName, _fileDateFormat, _fileSuffix, _delimiter, _columnOneName, _columnTwoName,
+                _dataDateFormat, minuteInterval, _testDateTime, powerService, _timeOut, lastWroteCsv, 0));
+           
             //confirm the log file has been written
             Assert.IsTrue(File.Exists(logFileName));
             var assembly = Assembly.GetExecutingAssembly();
@@ -207,34 +207,26 @@ namespace TDomain
 
         [Test]
         //Confirm the WriteCvException is being logged in the correct format
-        public void WriteCsvMinuteInterval_PowerServiceException_raised_sequentially_over_maximum_trys_throws_error()
+        public void TryWriteCsvMinuteInterval_PowerServiceException_throws_error()
         {
             var minuteInterval = 30;
             var asAt = _testDateTime.AddMinutes(29);
-            //confirm file was written            
-            var maxTrys = 5;
-            var csvWriter = new CsvWriter();
+            //confirm file was written                        
+            var csvWriter = new CsvWriter();            
             DateTime? lastWroteCsv = null;
 
             IPowerService powerService = Mock.Create<IPowerService>();
             Mock.Arrange(() => powerService.GetTradesAsync(_testDateTime)).Throws<AggregateException>("Power Service exception");
-            //first try five times no error should be thrown it will be logged and a retry allowed
-            for (int i = 1; i <= maxTrys; i++)
-            {
-                Assert.DoesNotThrow(() => lastWroteCsv = csvWriter.WriteCsvMinuteInterval(_fileFolder, _fileName, _fileDateFormat, _fileSuffix, _delimiter, _columnOneName, _columnTwoName,
-                    _dataDateFormat, minuteInterval, _testDateTime, powerService, _timeOut, lastWroteCsv));
-            }
-            //final time is over maximum number of retries so should throw an exception
-            Assert.Throws<AggregateException>(() => lastWroteCsv = csvWriter.WriteCsvMinuteInterval(_fileFolder, _fileName, _fileDateFormat, _fileSuffix, _delimiter, _columnOneName, _columnTwoName,
-                    _dataDateFormat, minuteInterval, _testDateTime, powerService, _timeOut, lastWroteCsv));
+                        
+            Assert.Throws<AggregateException>(() => lastWroteCsv = csvWriter.TryWriteCsvMinuteInterval(_fileFolder, _fileName, _fileDateFormat, _fileSuffix, _delimiter, _columnOneName, _columnTwoName,
+                    _dataDateFormat, minuteInterval, _testDateTime, powerService, _timeOut, lastWroteCsv, 0));
         }
         [Test]
-        public void WriteCsvMinuteInterval_over_timeout_raises_WriteCsvException()
+        public void TryWriteCsvMinuteInterval_over_timeout_raises_WriteCsvException()
         {
             var csvWriter = new CsvWriter();
             var minuteInterval = 30;
-            //confirm file was written            
-            var maxTrys = 5;
+            //confirm file was written                        
             DateTime? lastWroteCsv = null;
 
             IPowerService powerService = Mock.Create<IPowerService>();
@@ -250,16 +242,10 @@ namespace TDomain
                 }
                 return _powerTrades;
             }));
-
-            //first try five times no error should be thrown it will be logged and a retry allowed
-            for (int i = 1; i <= maxTrys; i++)
-            {
-                Assert.DoesNotThrow(() => lastWroteCsv = csvWriter.WriteCsvMinuteInterval(_fileFolder, _fileName, _fileDateFormat, _fileSuffix, _delimiter, _columnOneName, _columnTwoName,
-                    _dataDateFormat, minuteInterval, _testDateTime, powerService, _timeOut, lastWroteCsv));
-            }
+            
             //final time is over maximum number of retries so should throw an exception
-            Assert.Throws<WriteCsvException>(() => lastWroteCsv = csvWriter.WriteCsvMinuteInterval(_fileFolder, _fileName, _fileDateFormat, _fileSuffix, _delimiter, _columnOneName, _columnTwoName,
-                    _dataDateFormat, minuteInterval, _testDateTime, powerService, _timeOut, lastWroteCsv));
+            Assert.Throws<WriteCsvException>(() => lastWroteCsv = csvWriter.TryWriteCsvMinuteInterval(_fileFolder, _fileName, _fileDateFormat, _fileSuffix, _delimiter, _columnOneName, _columnTwoName,
+                    _dataDateFormat, minuteInterval, _testDateTime, powerService, _timeOut, lastWroteCsv, 0));
         }
 
         //Confirm that the logic for writing the historical csv set runs correctly
@@ -358,7 +344,7 @@ namespace TDomain
         {
             var csvWriter = new CsvWriter();
             var minuteInterval = 1;
-            var createFiles = 3;          
+            var createFiles = 3;                      
 
             //First clear out the folder
             Array.ForEach(Directory.GetFiles(_fileFolder), File.Delete);

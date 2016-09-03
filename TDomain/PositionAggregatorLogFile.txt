@@ -1,15 +1,15 @@
-2016-08-30 15:28:54.5829|ERROR|Domain.CsvWriter|An error has occured trying to write the csv file.  This is attempt number 1.  Another attempt will be made to write the file up to a maximum of 5.  Detailed information is below.
+2016-09-04 00:12:19.6047|ERROR|Domain.CsvWriter|An error has occured trying to write the csv file.  This is attempt number 1.  A maximum of 5 attempts will be made to write the file .  Detailed information is below. 
 
 Power Service Exception
-2016-08-30 15:28:54.7211|ERROR|Domain.CsvWriter|An error has occured trying to write the csv file.  This is attempt number 2.  Another attempt will be made to write the file up to a maximum of 5.  Detailed information is below.
+2016-09-04 00:12:19.8060|ERROR|Domain.CsvWriter|An error has occured trying to write the csv file.  This is attempt number 2.  A maximum of 5 attempts will be made to write the file .  Detailed information is below. 
 
 Power Service Exception
-2016-08-30 15:28:54.7558|ERROR|Domain.CsvWriter|An error has occured trying to write the csv file.  This is attempt number 3.  Another attempt will be made to write the file up to a maximum of 5.  Detailed information is below.
+2016-09-04 00:12:19.8527|ERROR|Domain.CsvWriter|An error has occured trying to write the csv file.  This is attempt number 3.  A maximum of 5 attempts will be made to write the file .  Detailed information is below. 
 
 Power Service Exception
-2016-08-30 15:28:54.7763|ERROR|Domain.CsvWriter|An error has occured trying to write the csv file.  This is attempt number 4.  Another attempt will be made to write the file up to a maximum of 5.  Detailed information is below.
+2016-09-04 00:12:19.8742|ERROR|Domain.CsvWriter|An error has occured trying to write the csv file.  This is attempt number 4.  A maximum of 5 attempts will be made to write the file .  Detailed information is below. 
 
 Power Service Exception
-2016-08-30 15:28:54.7958|ERROR|Domain.CsvWriter|An error has occured trying to write the csv file.  This is attempt number 5.  Another attempt will be made to write the file up to a maximum of 5.  Detailed information is below.
+2016-09-04 00:12:19.8948|ERROR|Domain.CsvWriter|An error has occured trying to write the csv file.  This is attempt number 5.  A maximum of 5 attempts will be made to write the file .  Detailed information is below. 
 
 Power Service Exception
