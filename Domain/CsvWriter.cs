@@ -7,23 +7,17 @@ using System.IO;
 using Services;
 using NLog;
 using Utility;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace Domain
 {
-    public sealed class CsvWriter : IDisposable 
+    public sealed class CsvWriter 
     {
         //   private static System.Timers.Timer _timer;
         private readonly Logger _logger = LogManager.GetCurrentClassLogger();
-        private System.Threading.Timer _timer;
-        private DateTime? _lastWroteCsv;
         private int _tryWriteCsv;
         private readonly int _maxTryWriteCsv = 5;
-
-        // pure sealed class does not need virtual dispose method or suppress finalizer.  No finalizer as timer is managed resource.
-        public void Dispose()
-        {
-            _timer?.Dispose();            
-        }
         
         //Generate a Csv for a position
         internal void WriteCsv(string writeFile, string delimiter, string columnOneName, 
@@ -61,36 +55,53 @@ namespace Domain
         //Generate a csv for position at a set interval
         public void StartCsvMinuteInterval(string fileFolder, string fileName, string fileDateFormat, string fileSuffix, string delimiter, string columnOneName,
             string columnTwoName, string dataDateFormat, int minuteInterval, IPowerService powerService, TimeSpan timeout)
-        {            
+        {
+            //var tokenSource = new CancellationTokenSource();
+            var lastWroteCsv = new DateTime?();
+            var task = Task.Run(async () =>
+            {
+                while (true)
+                {
+
+                    lastWroteCsv = WriteCsvMinuteInterval(fileFolder, fileName, fileDateFormat, fileSuffix, delimiter, columnOneName,
+                        columnTwoName,
+                        dataDateFormat, minuteInterval, null, powerService, timeout, lastWroteCsv);
+                    await Task.Delay(10000);
+                }
+            });
+            
+            /*
             _timer = new System.Threading.Timer(t => 
             WriteCsvMinuteInterval(fileFolder, fileName, fileDateFormat, fileSuffix, delimiter, columnOneName, columnTwoName,
                   dataDateFormat, minuteInterval, null, powerService, timeout)                  
                   , null, 0, 10000);                        
+                  */
         }
 
         //Generate historical position csv files
         public void WriteCsvMinuteIntervalHistorical(string fileFolder, string fileName, string fileDateFormat, string fileSuffix, string delimiter, string columnOneName,
             string columnTwoName, string dataDateFormat, int minuteInterval, IPowerService powerService, TimeSpan timeout, DateTime fromDate, DateTime toDate, bool overwriteExisting)
         {
+            var lastWroteCsv = new DateTime?(fromDate.AddHours(-1));
             for (DateTime checkDateTime = fromDate; checkDateTime <= toDate; checkDateTime = checkDateTime.AddMinutes(1))
             {
-                WriteCsvMinuteInterval(fileFolder, fileName, fileDateFormat, fileSuffix, delimiter, columnOneName,
-                    columnTwoName, dataDateFormat, minuteInterval, checkDateTime, powerService, timeout, overwriteExisting);
+                lastWroteCsv = WriteCsvMinuteInterval(fileFolder, fileName, fileDateFormat, fileSuffix, delimiter, columnOneName,
+                    columnTwoName, dataDateFormat, minuteInterval, checkDateTime, powerService, timeout, lastWroteCsv, overwriteExisting);
             }
             
         }
 
         //Write the csv file if the current time is at the minute Interval and no other file has been written by the process.  Otherwise write the file.
-        public void WriteCsvMinuteInterval(string fileFolder, string fileName, string fileDateFormat, string fileSuffix, string delimiter, string columnOneName,
-            string columnTwoName, string dataDateFormat, int minuteInterval, DateTime? asAt, IPowerService powerService, TimeSpan timeout, bool overwriteExisting = true)
+        public DateTime? WriteCsvMinuteInterval(string fileFolder, string fileName, string fileDateFormat, string fileSuffix, string delimiter, string columnOneName,
+            string columnTwoName, string dataDateFormat, int minuteInterval, DateTime? asAt, IPowerService powerService, TimeSpan timeout, DateTime? lastWroteCsv, bool overwriteExisting = true)
         {
             //use at parameter to override what time the method believes it is.  This is useful for testing.
             //using Universal time means do not have to worry about clocks changing
             DateTime nowDateTime = asAt ?? DateTime.Now.ToUniversalTime();
-            
+
             //if null then this is a first run so write the file if 
-            if (_lastWroteCsv == null || (nowDateTime.Minute % minuteInterval == 0 && 
-                (nowDateTime.Day != _lastWroteCsv.Value.Day || nowDateTime.Hour != _lastWroteCsv.Value.Hour || nowDateTime.Minute != _lastWroteCsv.Value.Minute)))
+            if (lastWroteCsv == null || (nowDateTime.Minute % minuteInterval == 0 &&
+               (nowDateTime.Day != lastWroteCsv.Value.Day || nowDateTime.Hour != lastWroteCsv.Value.Hour || nowDateTime.Minute != lastWroteCsv.Value.Minute)))
             {                
                 try
                 {
@@ -111,8 +122,8 @@ namespace Domain
                         var trades = tradesTask.Result;
                         var position = new Position(trades, nowDateTime);
                         WriteCsv(writeFile, delimiter, columnOneName, columnTwoName, dataDateFormat, position);
-                        _lastWroteCsv = nowDateTime;
                         _tryWriteCsv = 0;
+                        return nowDateTime;                        
                     }
                 }
                 catch (Exception ex)
@@ -125,7 +136,7 @@ namespace Domain
                         var exceptionMessages = ex.GetExceptionMessages();
                         var errorMessage =
                             "An error has occured trying to write the csv file.  This is attempt number " + _tryWriteCsv +
-                            ".  Another attempt will be made to write the file up to a maximum of " + _maxTryWriteCsv +
+                            ".  A maximum of " + _maxTryWriteCsv + " attempts will be made to write the file " + 
                             ".  Detailed information is below.\r\n\r\n"
                             + exceptionMessages;
                         _logger.Error(ex, errorMessage);
@@ -135,8 +146,9 @@ namespace Domain
                         throw;
                     }
                 }         
-            } 
+            }
+            // by default assume csv not written               
+            return lastWroteCsv;            
         }
-
     }
 }

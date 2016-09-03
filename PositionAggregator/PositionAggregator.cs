@@ -53,7 +53,7 @@ namespace PositionAggregator
                 var backFillFrom = Convert.ToDateTime(backFillFromSetting);
                 //If any files have been missed due to unexpected error must have the ability to backfill in any expected files that are missing
                 //do this first
-                new CsvWriter().WriteCsvMinuteIntervalHistorical(fileFolder, fileName, fileDateFormat, fileSuffix, delimiter,
+                _csvWriter.WriteCsvMinuteIntervalHistorical(fileFolder, fileName, fileDateFormat, fileSuffix, delimiter,
                     columnOneName, columnTwoName, dataDateFormat,
                     minuteInterval, powerService, timeout, backFillFrom, backFillTo, backFillOverWriteExisting);
             }
